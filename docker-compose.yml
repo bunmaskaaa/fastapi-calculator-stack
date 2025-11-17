@@ -1,16 +1,6 @@
-services:
-  web:
-    build: ./app
-    container_name: fastapi_web
-    env_file:
-      - ./app/.env
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./app:/app:rw
+version: "3.9"
 
+services:
   db:
     image: postgres:16
     container_name: fastapi_db
@@ -20,22 +10,31 @@ services:
       POSTGRES_DB: fastapi_db
     ports:
       - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: fastapi_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
     depends_on:
       - db
-    volumes:
-      - pgadmin:/var/lib/pgadmin
 
-volumes:
-  pgdata:
-  pgadmin:
+  web:
+    container_name: fastapi_web
+    build:
+      context: .               # 👈 use the project ROOT as build context
+      dockerfile: Dockerfile   # 👈 explicitly use the Dockerfile in root
+    env_file:
+      - ./app/.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
