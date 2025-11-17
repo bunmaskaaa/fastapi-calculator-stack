@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   test-and-build:
@@ -53,4 +51,3 @@ jobs:
       - name: Push Docker image
         if: github.ref == 'refs/heads/main'
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-calculator-stack:latest
-        
