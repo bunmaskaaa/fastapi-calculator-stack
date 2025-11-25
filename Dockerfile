@@ -1,18 +1,21 @@
+# Dockerfile
 FROM python:3.12-slim
 
-
-RUN apt-get update && \
-    apt-get install -y build-essential libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Prevent Python from buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-
-COPY requirements.txt /app/requirements.txt
+# Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./app /app/app
+# Copy app code
+COPY . .
 
+# Expose port
+ENV PORT=8000
 EXPOSE 8000
 
+# Start FastAPI with uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

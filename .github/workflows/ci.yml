@@ -2,13 +2,15 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+
+env:
+  DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/fastapi_db
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-calculator-stack
+
 jobs:
-  test-and-build:
+  build-test-deploy:
     runs-on: ubuntu-latest
 
     services:
@@ -27,9 +29,11 @@ jobs:
           --health-retries=5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -39,18 +43,19 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/fastapi_db
         run: pytest
 
       - name: Log in to Docker Hub
-        if: github.ref == 'refs/heads/main'
-        run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        if: success()
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image
-        if: github.ref == 'refs/heads/main'
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-calculator-stack:latest .
-
-      - name: Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-calculator-stack:latest
+      - name: Build and push Docker image
+        if: success()
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
