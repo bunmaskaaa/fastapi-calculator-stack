@@ -1,13 +1,25 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.db.database import Base, engine, get_db
+from app.database import engine
+from app.models import Base
+from app.api.routes import auth
 
-# Create tables on startup (for now; later you might use Alembic)
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Serve frontend files
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+# Create tables (User, etc.)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="FastAPI Calculator Stack - Module 11")
-
-
-@app.get("/")
-def read_root():
-    return {"status": "ok", "message": "Calculator backend running"}
+# Include auth routes
+app.include_router(auth.router)

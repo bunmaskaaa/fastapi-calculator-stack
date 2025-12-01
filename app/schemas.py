@@ -1,35 +1,14 @@
 # app/schemas.py
+
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
 
-# ---------- User Schemas ----------
-
-class UserBase(BaseModel):
-    username: str
-    email: EmailStr
-
-
-class UserCreate(UserBase):
-    password: str = Field(min_length=6)
-
-
-class UserRead(UserBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True  # FastAPI / SQLAlchemy 2.x compatible
-
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-
-# ---------- Calculation Schemas ----------
+# =======================
+# Calculation Schemas
+# =======================
 
 class CalculationBase(BaseModel):
     operation: str
@@ -38,16 +17,7 @@ class CalculationBase(BaseModel):
 
 
 class CalculationCreate(CalculationBase):
-    # For this assignment, we'll send the result from the client/tests
-    # (you could also compute it on the server if you want).
-    result: float
-
-
-class CalculationUpdate(BaseModel):
-    operation: Optional[str] = None
-    operand_a: Optional[float] = None
-    operand_b: Optional[float] = None
-    result: Optional[float] = None
+    pass
 
 
 class CalculationRead(CalculationBase):
@@ -57,4 +27,24 @@ class CalculationRead(CalculationBase):
     user_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # Pydantic v2; use from_orm=True in v1
+
+
+# =======================
+# Auth / User Schemas
+# =======================
+
+class UserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(min_length=8)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
