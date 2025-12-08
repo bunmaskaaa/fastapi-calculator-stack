@@ -3,3 +3,12 @@ __pycache__/
 *.pytest_cache/
 .env
 .env.*
+# Node / Frontend junk
+node_modules/
+dist/
+
+# Duplicate accidental repo
+fastapi-calculator-stack/
+
+# Playwright test (optional)
+app/tests/calculations.spec.ts

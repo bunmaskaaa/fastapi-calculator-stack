@@ -36,22 +36,23 @@ class TokenResponse(BaseModel):
 # Calculation Schemas (BREAD)
 # ==========================
 
-class CalculationCreate(BaseModel):
-    # Match what tests send:
-    # {
-    #   "operation": "add",
-    #   "operand_a": 2.0,
-    #   "operand_b": 3.0,
-    #   "result": 5.0
-    # }
+from pydantic import BaseModel, ConfigDict
+from typing import Optional
+from datetime import datetime
+
+
+class CalculationBase(BaseModel):
     operation: str
     operand_a: float
     operand_b: float
     result: float
 
 
+class CalculationCreate(CalculationBase):
+    pass
+
+
 class CalculationUpdate(BaseModel):
-    # For PATCH/PUT edits (all optional)
     operation: Optional[str] = None
     operand_a: Optional[float] = None
     operand_b: Optional[float] = None
@@ -64,9 +65,7 @@ class CalculationRead(BaseModel):
     operand_a: float
     operand_b: float
     result: float
-    # optional metadata, if present in model
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

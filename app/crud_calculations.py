@@ -1,54 +1,33 @@
-from typing import List, Optional
+from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
-from . import models, schemas
+from app import models, schemas
 
 
-# ---------- Helpers ----------
-
-def calculate_result(operation: str, a: float, b: float) -> float:
-    op = operation.lower()
-    if op == "add":
-        return a + b
-    elif op == "subtract":
-        return a - b
-    elif op == "multiply":
-        return a * b
-    elif op == "divide":
-        if b == 0:
-            raise ValueError("Cannot divide by zero")
-        return a / b
-    else:
-        raise ValueError(f"Unsupported operation: {operation}")
-
-
-def get_or_create_system_user(db: Session) -> models.User:
+def create_calculation(
+    db: Session, calculation_in: schemas.CalculationCreate
+) -> models.Calculation:
     """
-    Create or fetch a 'system' user to own calculations created without auth.
-    No password hashing here to avoid bcrypt issues in tests.
+    Create a new calculation row from a CalculationCreate schema.
+    Uses operand_a and operand_b to match the SQLAlchemy model.
     """
-    email = "system@example.com"
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user:
-        return user
-
-    user = models.User(
-        username="system",
-        email=email,
-        hashed_password="not-used",
-        is_active=True,
+    calc = models.Calculation(
+        operation=calculation_in.operation,
+        operand_a=calculation_in.operand_a,
+        operand_b=calculation_in.operand_b,
+        result=calculation_in.result,
     )
-    db.add(user)
+    db.add(calc)
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(calc)
+    return calc
 
-
-# ---------- CRUD operations ----------
 
 def get_calculations(db: Session) -> List[models.Calculation]:
+    """
+    Return all calculations, newest first.
+    """
     return (
         db.query(models.Calculation)
         .order_by(models.Calculation.created_at.desc())
@@ -57,6 +36,9 @@ def get_calculations(db: Session) -> List[models.Calculation]:
 
 
 def get_calculation(db: Session, calc_id: int) -> Optional[models.Calculation]:
+    """
+    Return a single calculation by id, or None.
+    """
     return (
         db.query(models.Calculation)
         .filter(models.Calculation.id == calc_id)
@@ -64,68 +46,27 @@ def get_calculation(db: Session, calc_id: int) -> Optional[models.Calculation]:
     )
 
 
-def create_calculation(
-    db: Session,
-    data: schemas.CalculationCreate,
-) -> models.Calculation:
-    """
-    Create a calculation.
-
-    For this assignment & tests, we trust the `result` that comes from the client.
-    """
-    system_user = get_or_create_system_user(db)
-
-    calc = models.Calculation(
-        user_id=system_user.id,
-        operation=data.operation,
-        operand1=data.operand_a,
-        operand2=data.operand_b,
-        result=data.result,  # use the client-provided result
-    )
-    db.add(calc)
-    db.commit()
-    db.refresh(calc)
-    return calc
-
-
 def update_calculation(
     db: Session,
-    calc_id: int,
-    data: schemas.CalculationUpdate,
-) -> Optional[models.Calculation]:
-    calc = get_calculation(db, calc_id)
-    if not calc:
-        return None
-
-    operation_changed = False
-    operands_changed = False
-
-    if data.operation is not None:
-        calc.operation = data.operation
-        operation_changed = True
-    if data.operand_a is not None:
-        calc.operand1 = data.operand_a
-        operands_changed = True
-    if data.operand_b is not None:
-        calc.operand2 = data.operand_b
-        operands_changed = True
-
-    # If caller explicitly sends a result, trust that value
-    if data.result is not None:
-        calc.result = data.result
-    # Otherwise, if something about the operation/operands changed, recompute
-    elif operation_changed or operands_changed:
-        calc.result = calculate_result(calc.operation, calc.operand1, calc.operand2)
-
+    db_calc: models.Calculation,
+    calculation_in: schemas.CalculationUpdate,
+) -> models.Calculation:
+    """
+    Full or partial update of an existing calculation.
+    Only fields provided in CalculationUpdate are modified.
+    """
+    data = calculation_in.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(db_calc, field, value)
+    db.add(db_calc)
     db.commit()
-    db.refresh(calc)
-    return calc
+    db.refresh(db_calc)
+    return db_calc
 
 
-def delete_calculation(db: Session, calc_id: int) -> bool:
-    calc = get_calculation(db, calc_id)
-    if not calc:
-        return False
-    db.delete(calc)
+def delete_calculation(db: Session, db_calc: models.Calculation) -> None:
+    """
+    Delete a calculation and commit the change.
+    """
+    db.delete(db_calc)
     db.commit()
-    return True
