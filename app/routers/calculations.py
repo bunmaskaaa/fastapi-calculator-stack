@@ -1,16 +1,10 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from .. import schemas
-from ..database import get_db
-from .. import crud_calculations
+from app.database import get_db
+from app import crud_calculations, schemas
 
-router = APIRouter(
-    prefix="/calculations",
-    tags=["calculations"],
-)
+router = APIRouter()
 
 
 @router.post(
@@ -19,26 +13,25 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 def create_calculation(
-    payload: schemas.CalculationCreate,
+    calculation_in: schemas.CalculationCreate,
     db: Session = Depends(get_db),
 ):
     """
-    Add: POST /calculations/
-    No auth required for tests.
+    Add (Create) a new calculation.
     """
-    calc = crud_calculations.create_calculation(db, payload)
-    return calc
+    return crud_calculations.create_calculation(db, calculation_in)
 
 
 @router.get(
     "/",
-    response_model=List[schemas.CalculationRead],
+    response_model=list[schemas.CalculationRead],
+    status_code=status.HTTP_200_OK,
 )
-def browse_calculations(
+def list_calculations(
     db: Session = Depends(get_db),
 ):
     """
-    Browse: GET /calculations/
+    Browse: list all calculations.
     """
     return crud_calculations.get_calculations(db)
 
@@ -46,54 +39,59 @@ def browse_calculations(
 @router.get(
     "/{calc_id}",
     response_model=schemas.CalculationRead,
+    status_code=status.HTTP_200_OK,
 )
-def read_calculation(
+def get_calculation(
     calc_id: int,
     db: Session = Depends(get_db),
 ):
     """
-    Read: GET /calculations/{id}
+    Read: get a specific calculation.
     """
-    calc = crud_calculations.get_calculation(db, calc_id)
-    if not calc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Calculation not found",
-        )
-    return calc
+    db_calc = crud_calculations.get_calculation(db, calc_id)
+    if not db_calc:
+        raise HTTPException(status_code=404, detail="Calculation not found")
+    return db_calc
+
+
+@router.put(
+    "/{calc_id}",
+    response_model=schemas.CalculationRead,
+    status_code=status.HTTP_200_OK,
+)
+def update_calculation_full(
+    calc_id: int,
+    calculation_in: schemas.CalculationUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Edit: full update (PUT).
+    """
+    db_calc = crud_calculations.get_calculation(db, calc_id)
+    if not db_calc:
+        raise HTTPException(status_code=404, detail="Calculation not found")
+
+    return crud_calculations.update_calculation(db, db_calc, calculation_in)
 
 
 @router.patch(
     "/{calc_id}",
     response_model=schemas.CalculationRead,
+    status_code=status.HTTP_200_OK,
 )
-@router.put(
-    "/{calc_id}",
-    response_model=schemas.CalculationRead,
-)
-def edit_calculation(
+def update_calculation_partial(
     calc_id: int,
-    payload: schemas.CalculationUpdate,
+    calculation_in: schemas.CalculationUpdate,
     db: Session = Depends(get_db),
 ):
     """
-    Edit: PATCH/PUT /calculations/{id}
+    Edit: partial update (PATCH).
     """
-    try:
-        calc = crud_calculations.update_calculation(db, calc_id, payload)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+    db_calc = crud_calculations.get_calculation(db, calc_id)
+    if not db_calc:
+        raise HTTPException(status_code=404, detail="Calculation not found")
 
-    if not calc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Calculation not found",
-        )
-
-    return calc
+    return crud_calculations.update_calculation(db, db_calc, calculation_in)
 
 
 @router.delete(
@@ -105,12 +103,11 @@ def delete_calculation(
     db: Session = Depends(get_db),
 ):
     """
-    Delete: DELETE /calculations/{id}
+    Delete: remove a calculation.
     """
-    success = crud_calculations.delete_calculation(db, calc_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Calculation not found",
-        )
+    db_calc = crud_calculations.get_calculation(db, calc_id)
+    if not db_calc:
+        raise HTTPException(status_code=404, detail="Calculation not found")
+
+    crud_calculations.delete_calculation(db, db_calc)
     return None
